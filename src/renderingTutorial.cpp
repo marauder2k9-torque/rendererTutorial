@@ -1,13 +1,8 @@
 
 #define no_init_all deprecated
-#include <Windows.h>
 #include <stdio.h>
-#include <string>
-#include <stdlib.h>
-#include <string.h>
 #include <assert.h>
 #include <vector>
-#include <iostream>
 #include <fstream>
 #include <algorithm>
 #include <sstream>
@@ -16,6 +11,9 @@
 #include <glad/gl.h>
 #include <glad/wgl.h>
 #pragma warning(disable : 4996)
+
+#include "math/matrix.h"
+
 
 //-------------------------------------------------------------
 // Window Handling
@@ -65,6 +63,7 @@ Win32PlatState winState;
 
 void CreatePixelFormat(PIXELFORMATDESCRIPTOR *pPFD, int colorBits, int depthBits, int stencilBits, bool stereo)
 {
+	printf("Pixel Formate: %d %d %d. \n", colorBits, depthBits, stencilBits);
 	PIXELFORMATDESCRIPTOR src =
 	{
 	   sizeof(PIXELFORMATDESCRIPTOR),   // size of this pfd
@@ -131,6 +130,7 @@ struct Resolution
 
 Resolution getDesktopResolution()
 {
+	printf("Get desktop resolution.\n");
 	Resolution  Result;
 	RECT        clientRect;
 	HWND        hDesktop = GetDesktopWindow();
@@ -141,6 +141,7 @@ Resolution getDesktopResolution()
 	Result.w = winState.desktopWidth = GetDeviceCaps(hDeskDC, HORZRES);
 	Result.h = winState.desktopHeight = GetDeviceCaps(hDeskDC, VERTRES);
 
+	printf("Resolution: %d %d %d\n", Result.w, Result.h, Result.bpp);
 	// Release Device Context.
 	ReleaseDC(hDesktop, hDeskDC);
 
@@ -154,6 +155,7 @@ Resolution getDesktopResolution()
 
 HWND CreateOpenGLWindow(UINT32 width, UINT32 height, bool fullScreen, bool allowSizing)
 {
+	printf("Create our opengl window. \n");
 	int windowStyle = WS_CLIPCHILDREN | WS_CLIPSIBLINGS;
 	int exWindowStyle = 0;
 
@@ -277,6 +279,7 @@ void* mContext;
 
 void gglPerformBinds()
 {
+	printf("Load Glad binds. \n");
 	if (!gladLoaderLoadGL())
 	{
 		return;
@@ -285,6 +288,7 @@ void gglPerformBinds()
 
 void gglPerformExtensionBinds(void *context)
 {
+	printf("Load WGL binds. \n");
 	if (!gladLoaderLoadWGL((HDC)context))
 	{
 		return;
@@ -293,6 +297,7 @@ void gglPerformExtensionBinds(void *context)
 
 void loadGLCore()
 {
+	printf("Load glad core.\n");
 	static bool coreLoaded = false; // Guess what this is for.
 	if (coreLoaded)
 		return;
@@ -304,6 +309,7 @@ void loadGLCore()
 
 void loadGLExtensions(void *context)
 {
+	printf("Load extensions for wgl. \n");
 	static bool extensionsLoaded = false;
 	if (extensionsLoaded)
 		return;
@@ -314,6 +320,7 @@ void loadGLExtensions(void *context)
 
 GFXDevice* initOpenGL()
 {
+	printf("Temp init opengl for hardware initializing and capabilities. \n");
 	WNDCLASS windowClass;
 	memset(&windowClass, 0, sizeof(WNDCLASS));
 
@@ -362,6 +369,8 @@ GFXDevice* initOpenGL()
 	else
 		strncpy(toAdd->mName, "OpenGL", 512);
 
+	printf("Renderer: %s \n", toAdd->mName);
+
 	// Cleanup our window
 	wglMakeCurrent(NULL, NULL);
 	wglDeleteContext(tempGLRC);
@@ -372,18 +381,9 @@ GFXDevice* initOpenGL()
 	return toAdd;
 }
 
-void initCanonicalGLState()
-{
-	const char* vendorStr = (const char*)glGetString(GL_VENDOR);
-	GLuint vao;
-	glGenVertexArrays(1, &vao);
-	glBindVertexArray(vao);
-	glEnable(GL_FRAMEBUFFER_SRGB);
-
-}
-
 void initFinalState(HWND window)
 {
+	printf("Actually make our opengl context we will use \n");
 	// Create a device context
 	HDC hdcGL = GetDC(window);
 	assert(hdcGL != NULL, "Failed to create device context");
@@ -395,8 +395,8 @@ void initFinalState(HWND window)
 	if (!SetPixelFormat(hdcGL, ChoosePixelFormat(hdcGL, &pfd), &pfd))
 		assert(false, "cannot get the one and only pixel format we check for.");
 
-	int OGL_MAJOR = 3;
-	int OGL_MINOR = 2;
+	int OGL_MAJOR = 4;
+	int OGL_MINOR = 3;
 
 #if _DEBUG
 	int debugFlag = WGL_CONTEXT_DEBUG_BIT_ARB;
@@ -437,7 +437,8 @@ void initFinalState(HWND window)
 	loadGLCore();
 	loadGLExtensions(hdcGL);
 
-	initCanonicalGLState();
+	//enable sRGB
+	glEnable(GL_FRAMEBUFFER_SRGB);
 
 }
 
@@ -457,7 +458,7 @@ GLuint LoadShaders(const char * vertex_file_path, const char * fragment_file_pat
 		VertexShaderStream.close();
 	}
 	else {
-		printf("Impossible to open %s. Are you in the right directory ? Don't forget to read the FAQ !\n", vertex_file_path);
+		printf("Impossible to open %s!\n", vertex_file_path);
 		getchar();
 		return 0;
 	}
@@ -491,8 +492,6 @@ GLuint LoadShaders(const char * vertex_file_path, const char * fragment_file_pat
 		printf("%s\n", &VertexShaderErrorMessage[0]);
 	}
 
-
-
 	// Compile Fragment Shader
 	printf("Compiling shader : %s\n", fragment_file_path);
 	char const * FragmentSourcePointer = FragmentShaderCode.c_str();
@@ -507,8 +506,6 @@ GLuint LoadShaders(const char * vertex_file_path, const char * fragment_file_pat
 		glGetShaderInfoLog(FragmentShaderID, InfoLogLength, NULL, &FragmentShaderErrorMessage[0]);
 		printf("%s\n", &FragmentShaderErrorMessage[0]);
 	}
-
-
 
 	// Link the program
 	printf("Linking program\n");
@@ -526,7 +523,6 @@ GLuint LoadShaders(const char * vertex_file_path, const char * fragment_file_pat
 		printf("%s\n", &ProgramErrorMessage[0]);
 	}
 
-
 	glDetachShader(ProgramID, VertexShaderID);
 	glDetachShader(ProgramID, FragmentShaderID);
 
@@ -543,19 +539,20 @@ GLuint LoadShaders(const char * vertex_file_path, const char * fragment_file_pat
 int main()
 {
 	winState.appInstance = GetModuleHandle(NULL);
+	return WinMain(winState.appInstance, NULL, (PSTR)GetCommandLine(), SW_SHOW);
 }
 
 INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine, INT nCmdShow)
 {
 	winState.appInstance = hInstance;
 	InitWindowClass();
-	getDesktopResolution();
+	Resolution res = getDesktopResolution();
 	GFXDevice* dev = new GFXDevice();
 	dev = initOpenGL();
 	InitWindow();
 
 	HWND window;
-	window = CreateOpenGLWindow(1280, 720,false,true);
+	window = CreateOpenGLWindow(res.w, res.h,false,true);
 	initFinalState(window);
 	ShowWindow(window, SW_SHOW);
 
@@ -579,143 +576,157 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine,
 		wglSwapIntervalEXT(0);
 	}
 
+	glViewport(0, 0, res.w, res.h);
+
 	MSG msg = {};
 	sgQueueEvents = true;
-
-	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-
+	printf("-------------------------\n");
+	printf("LOAD SHADER\n");
+	printf("-------------------------\n");
 	GLuint programID = LoadShaders("TransformVertexShader.vertexshader", "ColorFragmentShader.fragmentshader");
 
-	GLuint MatrixID = glGetUniformLocation(programID, "MVP");
+	GLuint modelID = glGetUniformLocation(programID, "model");
+	GLuint viewID = glGetUniformLocation(programID, "view");
+	GLuint projID = glGetUniformLocation(programID, "proj");
 
-	// bind our buffer data.
-	static const GLfloat g_vertex_buffer_data[] = {
-		-1.0f,-1.0f,-1.0f,
-		-1.0f,-1.0f, 1.0f,
-		-1.0f, 1.0f, 1.0f,
-		 1.0f, 1.0f,-1.0f,
-		-1.0f,-1.0f,-1.0f,
-		-1.0f, 1.0f,-1.0f,
-		 1.0f,-1.0f, 1.0f,
-		-1.0f,-1.0f,-1.0f,
-		 1.0f,-1.0f,-1.0f,
-		 1.0f, 1.0f,-1.0f,
-		 1.0f,-1.0f,-1.0f,
-		-1.0f,-1.0f,-1.0f,
-		-1.0f,-1.0f,-1.0f,
-		-1.0f, 1.0f, 1.0f,
-		-1.0f, 1.0f,-1.0f,
-		 1.0f,-1.0f, 1.0f,
-		-1.0f,-1.0f, 1.0f,
-		-1.0f,-1.0f,-1.0f,
-		-1.0f, 1.0f, 1.0f,
-		-1.0f,-1.0f, 1.0f,
-		 1.0f,-1.0f, 1.0f,
-		 1.0f, 1.0f, 1.0f,
-		 1.0f,-1.0f,-1.0f,
-		 1.0f, 1.0f,-1.0f,
-		 1.0f,-1.0f,-1.0f,
-		 1.0f, 1.0f, 1.0f,
-		 1.0f,-1.0f, 1.0f,
-		 1.0f, 1.0f, 1.0f,
-		 1.0f, 1.0f,-1.0f,
-		-1.0f, 1.0f,-1.0f,
-		 1.0f, 1.0f, 1.0f,
-		-1.0f, 1.0f,-1.0f,
-		-1.0f, 1.0f, 1.0f,
-		 1.0f, 1.0f, 1.0f,
-		-1.0f, 1.0f, 1.0f,
-		 1.0f,-1.0f, 1.0f
-	};
+	Matrix4 proj;
+	proj.identity();
+	proj.setFrustum(90.0f,(float)res.w / (float)res.h, 0.01f, 100.0f);
+	printf("-------------------------\n");
+	printf("PROJECTION MATRIX\n");
+	printf("-------------------------\n");
+	proj.printMatrix();
 
-	// One color for each vertex. They were generated randomly.
-	static const GLfloat g_color_buffer_data[] = {
-		0.583f,  0.771f,  0.014f,
-		0.609f,  0.115f,  0.436f,
-		0.327f,  0.483f,  0.844f,
-		0.822f,  0.569f,  0.201f,
-		0.435f,  0.602f,  0.223f,
-		0.310f,  0.747f,  0.185f,
-		0.597f,  0.770f,  0.761f,
-		0.559f,  0.436f,  0.730f,
-		0.359f,  0.583f,  0.152f,
-		0.483f,  0.596f,  0.789f,
-		0.559f,  0.861f,  0.639f,
-		0.195f,  0.548f,  0.859f,
-		0.014f,  0.184f,  0.576f,
-		0.771f,  0.328f,  0.970f,
-		0.406f,  0.615f,  0.116f,
-		0.676f,  0.977f,  0.133f,
-		0.971f,  0.572f,  0.833f,
-		0.140f,  0.616f,  0.489f,
-		0.997f,  0.513f,  0.064f,
-		0.945f,  0.719f,  0.592f,
-		0.543f,  0.021f,  0.978f,
-		0.279f,  0.317f,  0.505f,
-		0.167f,  0.620f,  0.077f,
-		0.347f,  0.857f,  0.137f,
-		0.055f,  0.953f,  0.042f,
-		0.714f,  0.505f,  0.345f,
-		0.783f,  0.290f,  0.734f,
-		0.722f,  0.645f,  0.174f,
-		0.302f,  0.455f,  0.848f,
-		0.225f,  0.587f,  0.040f,
-		0.517f,  0.713f,  0.338f,
-		0.053f,  0.959f,  0.120f,
-		0.393f,  0.621f,  0.362f,
-		0.673f,  0.211f,  0.457f,
-		0.820f,  0.883f,  0.371f,
-		0.982f,  0.099f,  0.879f
-	};
+	Matrix4 view;
+	view.identity();
+	view.lookAt(Vector3(4.0f, 3.0f, -3.0f), Vector3(0.0f, 0.0f, 0.0f), Vector3(0.0f, 1.0f, 0.0f));
+	printf("-------------------------\n");
+	printf("VIEW MATRIX\n");
+	printf("-------------------------\n");
+	view.printMatrix();
 
-	GLuint vertexbuffer;
-	glGenBuffers(1, &vertexbuffer);
-	glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(g_vertex_buffer_data), g_vertex_buffer_data, GL_STATIC_DRAW);
+	Matrix4 model;
+	model.identity();
+	printf("-------------------------\n");
+	printf("MODEL MATRIX\n");
+	printf("-------------------------\n");
+	model.printMatrix();
 
+	GLfloat vertices1[] = {	 1, 1, 1,  -1, 1, 1,  -1,-1, 1,     // v0-v1-v2 (front)
+							-1,-1, 1,   1,-1, 1,   1, 1, 1,     // v2-v3-v0
+
+							1, 1, 1,   1,-1, 1,   1,-1,-1,      // v0-v3-v4 (right)
+							1,-1,-1,   1, 1,-1,   1, 1, 1,      // v4-v5-v0
+
+							1, 1, 1,   1, 1,-1,  -1, 1,-1,      // v0-v5-v6 (top)
+							-1, 1,-1,  -1, 1, 1,   1, 1, 1,     // v6-v1-v0
+
+							-1, 1, 1,  -1, 1,-1,  -1,-1,-1,     // v1-v6-v7 (left)
+							-1,-1,-1,  -1,-1, 1,  -1, 1, 1,     // v7-v2-v1
+
+							-1,-1,-1,   1,-1,-1,   1,-1, 1,     // v7-v4-v3 (bottom)
+							1,-1, 1,  -1,-1, 1,  -1,-1,-1,      // v3-v2-v7
+
+							1,-1,-1,  -1,-1,-1,  -1, 1,-1,      // v4-v7-v6 (back)
+							-1, 1,-1,   1, 1,-1,   1,-1,-1 };	// v6-v5-v4
+
+
+// color array
+	GLfloat colors1[] = {	1, 1, 1,   1, 1, 0,   1, 0, 0,      // v0-v1-v2 (front)
+							1, 0, 0,   1, 0, 1,   1, 1, 1,      // v2-v3-v0
+
+							1, 1, 1,   1, 0, 1,   0, 0, 1,      // v0-v3-v4 (right)
+							0, 0, 1,   0, 1, 1,   1, 1, 1,      // v4-v5-v0
+
+							1, 1, 1,   0, 1, 1,   0, 1, 0,      // v0-v5-v6 (top)
+							0, 1, 0,   1, 1, 0,   1, 1, 1,      // v6-v1-v0
+
+							1, 1, 0,   0, 1, 0,   0, 0, 0,      // v1-v6-v7 (left)
+							0, 0, 0,   1, 0, 0,   1, 1, 0,      // v7-v2-v1
+
+							0, 0, 0,   0, 0, 1,   1, 0, 1,      // v7-v4-v3 (bottom)
+							1, 0, 1,   1, 0, 0,   0, 0, 0,      // v3-v2-v7
+
+							0, 0, 1,   0, 0, 0,   0, 1, 0,      // v4-v7-v6 (back)
+							0, 1, 0,   0, 1, 1,   0, 0, 1 };    // v6-v5-v4
+
+	// Generate vertex array object.
+	GLuint VAO;
+	glGenVertexArrays(1, &VAO);
+
+	// bind the vertex array object first, then bind and set vertex buffers.
+	glBindVertexArray(VAO);
+
+	// Generate vertex buffer for position attribute.
+	GLuint vertbuffer;
+	glGenBuffers(1, &vertbuffer);
+
+	// bind the vbuffer
+	glBindBuffer(GL_ARRAY_BUFFER, vertbuffer);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices1), vertices1, GL_STATIC_DRAW);
+
+	// gernerate color buffer for color attribute.
 	GLuint colorbuffer;
 	glGenBuffers(1, &colorbuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, colorbuffer);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(g_color_buffer_data), g_color_buffer_data, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(colors1), colors1, GL_STATIC_DRAW);
 
+	// position attribute in shader
+	GLuint loc1;
+	loc1 = glGetAttribLocation(programID, "position");
+	glBindBuffer(GL_ARRAY_BUFFER, vertbuffer);
+	glVertexAttribPointer(
+		loc1,               // match with shader.
+		3,                  // size
+		GL_FLOAT,           // type
+		GL_FALSE,           // normalized?
+		0,					// stride
+		(void*)0			// array buffer offset
+	);
+	glEnableVertexAttribArray(loc1);
+
+	// color attribute in shader.
+	GLuint loc2;
+	loc2 = glGetAttribLocation(programID, "color");
+	glBindBuffer(GL_ARRAY_BUFFER, colorbuffer);
+	glVertexAttribPointer(
+		loc2,								// must match the layout in the shader.
+		3,									// size
+		GL_FLOAT,							// type
+		GL_FALSE,							// normalized?
+		0,									// stride
+		(void*)0							// array buffer offset
+	);
+	glEnableVertexAttribArray(loc2);
+	
 	while (GetMessage(&msg, NULL, 0, 0))
 	{
+		
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
 
-		glClear(GL_COLOR_BUFFER_BIT);
+		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		//glEnable(GL_DEPTH_TEST);
+		//glDepthFunc(GL_LESS);
+
+		glUniformMatrix4fv(modelID, 1, GL_TRUE, model.get());
+		glUniformMatrix4fv(viewID, 1, GL_FALSE, view.get());
+		glUniformMatrix4fv(projID, 1, GL_TRUE, proj.get());
+
+		glUseProgram(programID);
 
 		// DRAW HERE PLEASE!!!!!!
-		glEnableVertexAttribArray(0);
-		glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
-		glVertexAttribPointer(
-			0,                  // attribute. No particular reason for 0, but must match the layout in the shader.
-			3,                  // size
-			GL_FLOAT,           // type
-			GL_FALSE,           // normalized?
-			0,                  // stride
-			(void*)0            // array buffer offset
-		);
-
-		glEnableVertexAttribArray(1);
-		glBindBuffer(GL_ARRAY_BUFFER, colorbuffer);
-		glVertexAttribPointer(
-			1,                                // attribute. No particular reason for 1, but must match the layout in the shader.
-			3,                                // size
-			GL_FLOAT,                         // type
-			GL_FALSE,                         // normalized?
-			0,                                // stride
-			(void*)0                          // array buffer offset
-		);
-
-		// Draw the triangle !
-		glDrawArrays(GL_TRIANGLES, 0, 12 * 3); // 12*3 indices starting at 0 -> 12 triangles
-
-		glDisableVertexAttribArray(0);
-		glDisableVertexAttribArray(1);
+		glDrawArrays(GL_TRIANGLES, 0, 36); // 
 
 		SwapBuffers(winState.appDC);
 	}
+
+	// Cleanup VBO and shader
+	glDeleteBuffers(1, &vertbuffer);
+	glDeleteBuffers(1, &colorbuffer);
+	glDeleteProgram(programID);
+	glDeleteVertexArrays(1, &VAO);
 
 	sgQueueEvents = false;
 	wglDeleteContext((HGLRC)mContext);
