@@ -2,6 +2,7 @@
 #define no_init_all deprecated
 #include <stdio.h>
 #include <assert.h>
+#include <chrono>
 #include <vector>
 #include <fstream>
 #include <algorithm>
@@ -556,6 +557,12 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine,
 	initFinalState(window);
 	ShowWindow(window, SW_SHOW);
 
+	// fps initializers.
+	float prevtime = 0.0f;
+	float curTime = 0.0f;
+	float timeDiff;
+	UINT32 count = 0;
+
 	if (gglHasWExtension(EXT_swap_control))
 	{
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -698,12 +705,20 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine,
 		(void*)0							// array buffer offset
 	);
 	glEnableVertexAttribArray(loc2);
-	
-	while (GetMessage(&msg, NULL, 0, 0))
+	bool bRet;
+
+	while (1)
 	{
-		
-		TranslateMessage(&msg);
-		DispatchMessage(&msg);
+		bRet = GetMessage(&msg, NULL, 0, 0);
+		if (bRet > 0)
+		{
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
+		}
+		else
+		{
+			break;
+		}
 
 		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
