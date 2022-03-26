@@ -15,6 +15,24 @@
 
 #include "math/matrix.h"
 
+#ifndef NDEBUG
+#   define assertFatal(Expr, Msg) \
+    assertExp(#Expr, Expr, __FILE__, __LINE__, Msg)
+#else
+#   define M_Assert(Expr, Msg) ;
+#endif
+
+void assertExp(const char* expr_str, bool expr, const char* file, int line, const char* msg)
+{
+	if (!expr)
+	{
+		std::cerr << "Assert failed:\t" << msg << "\n"
+			<< "Expected:\t" << expr_str << "\n"
+			<< "Source:\t\t" << file << ", line " << line << "\n";
+		abort();
+	}
+}
+
 //-------------------------------------------------------------
 // Window Handling
 //-------------------------------------------------------------
@@ -193,6 +211,9 @@ static LRESULT PASCAL WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 {
 	switch (message)
 	{
+	/*case WM_TIMER:
+		drawFrame();
+		break;*/
 	case WM_CLOSE:
 		DestroyWindow(hWnd);
 		PostQuitMessage(0);
@@ -333,27 +354,27 @@ GFXDevice* initOpenGL()
 	windowClass.hInstance = winState.appInstance;
 
 	if (!RegisterClass(&windowClass))
-		assert(false, "Failed to register the window.");
+		assertFatal(false, "Failed to register the window.");
 
 	// create test window.
 	HWND hwnd = CreateWindow(L"GFX-OpenGL", L"", WS_POPUP, 0, 0, 640, 480,
 		NULL, NULL, winState.appInstance, NULL);
 
-	assert(hwnd != NULL, "Failed to create test window");
+	assertFatal(hwnd != NULL, "Failed to create test window.");
 
 	// create device context
 	HDC tempDC = GetDC(hwnd);
-	assert(tempDC != NULL, "Failed to create device context.");
+	assertFatal(tempDC != NULL, "Failed to create device context.");
 
 	PIXELFORMATDESCRIPTOR pfd; 
 	CreatePixelFormat(&pfd, 32, 0, 0, false);
 	if (!SetPixelFormat(tempDC, ChoosePixelFormat(tempDC, &pfd), &pfd))
-		assert(false, "Failed to set pixel format");
+		assertFatal(false, "Failed to set pixel format");
 
 	// rendering context
 	HGLRC tempGLRC = wglCreateContext(tempDC);
 	if (!wglMakeCurrent(tempDC, tempGLRC))
-		assert(false, "Failed to create windows rendering context and make it current.");
+		assertFatal(false, "Failed to create windows rendering context and make it current.");
 
 	// Add the GL renderer
 	loadGLCore();
@@ -367,7 +388,7 @@ GFXDevice* initOpenGL()
 	glGetIntegerv(GL_MINOR_VERSION, &min);
 
 	const char* renderer = (const char*)glGetString(GL_RENDERER);
-	assert(renderer != NULL, "GL_RENDERER returned NULL!");
+	assertFatal(renderer != NULL, "GL_RENDERER returned NULL!");
 	if (renderer)
 	{
 		strncpy(toAdd->mName, renderer, 512);
@@ -420,14 +441,14 @@ void initFinalState(HWND window)
 	printf("Actually make our opengl context we will use \n");
 	// Create a device context
 	HDC hdcGL = GetDC(window);
-	assert(hdcGL != NULL, "Failed to create device context");
+	assertFatal(hdcGL != NULL, "Failed to create device context");
 	winState.appDC = hdcGL;
 
 	// Create pixel format descriptor...
 	PIXELFORMATDESCRIPTOR pfd;
 	CreatePixelFormat(&pfd, 32, 0, 0, false); // 32 bit color... We do not need depth or stencil, OpenGL renders into a FBO and then copy the image to window
 	if (!SetPixelFormat(hdcGL, ChoosePixelFormat(hdcGL, &pfd), &pfd))
-		assert(false, "cannot get the one and only pixel format we check for.");
+		assertFatal(false, "cannot get the one and only pixel format we check for.");
 
 	int OGL_MAJOR = 4;
 	int OGL_MINOR = 3;
@@ -441,7 +462,7 @@ void initFinalState(HWND window)
 	// Create a temp rendering context, needed a current context to use wglCreateContextAttribsARB
 	HGLRC tempGLRC = wglCreateContext(hdcGL);
 	if (!wglMakeCurrent(hdcGL, tempGLRC))
-		assert(false, "Couldn't make temp GL context.");
+		assertFatal(false, "Couldn't make temp GL context.");
 
 	if (gglHasWExtension(ARB_create_context))
 	{
@@ -457,7 +478,7 @@ void initFinalState(HWND window)
 		mContext = wglCreateContextAttribsARB(hdcGL, 0, create_attribs);
 		if (!mContext)
 		{
-			assert(0, "");
+			assertFatal(0, "");
 		}
 	}
 	else
@@ -466,7 +487,7 @@ void initFinalState(HWND window)
 	wglMakeCurrent(NULL, NULL);
 	wglDeleteContext(tempGLRC);
 	if (!wglMakeCurrent(hdcGL, (HGLRC)mContext))
-		assert(false, "Cannot make our context current.");
+		assertFatal(false, "Cannot make our context current.");
 
 	loadGLCore();
 	loadGLExtensions(hdcGL);
@@ -757,7 +778,7 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine,
 		}
 
 		// clear our screen
-		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+		glClearColor(0.011f, 0.01f, 0.01f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		// use depth test!!
