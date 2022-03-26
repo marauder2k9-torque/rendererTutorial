@@ -190,7 +190,7 @@ struct WinMessage
 std::vector<WinMessage> sgWinMessages;
 #define ID_TIMER    1
 
-static LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+static LRESULT PASCAL WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	switch (message)
 	{
@@ -200,6 +200,7 @@ static LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARA
 		return(0);
 		break;
 	case WM_DESTROY:
+		FreeConsole();
 		PostQuitMessage(0);
 		return(0);
 		break;
@@ -748,16 +749,13 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine,
 	{
 		if (PeekMessage(&msg, window, 0, 0, PM_REMOVE)) 
 		{
-			if (WM_QUIT == msg.message)
-			{
+			if (WM_QUIT == msg.message) {
 				break;
 			}
-			else
-			{
+			else {
 				TranslateMessage(&msg);
 				DispatchMessage(&msg);
 			}
-
 		}
 		else
 		{
