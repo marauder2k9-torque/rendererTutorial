@@ -748,18 +748,8 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine,
 		bRet = GetMessage(&msg, NULL, 0, 0);
 		if (bRet > 0)
 		{
-<<<<<<< HEAD
-			if (WM_QUIT == msg.message) {
-				break;
-			}
-			else {
-				TranslateMessage(&msg);
-				DispatchMessage(&msg);
-			}
-=======
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
->>>>>>> parent of de35715 (implement render loop)
 		}
 		else
 		{
