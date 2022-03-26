@@ -259,7 +259,7 @@ void Matrix4::printMatrix()
 	printf("( %3.5f , %3.5f , %3.5f , %3.5f )\n", this->m[0], this->m[1], this->m[2], this->m[3]);
 	printf("( %3.5f , %3.5f , %3.5f , %3.5f )\n", this->m[4], this->m[5], this->m[6], this->m[7]);
 	printf("( %3.5f , %3.5f , %3.5f , %3.5f )\n", this->m[8], this->m[9], this->m[10], this->m[11]);
-	printf("( %3.5f , %3.5f , %3.5f , %3.5f )\n", this->m[12], this->m[13], this->m[14], this->m[15]);
+	printf("( %3.5f , %3.5f , %3.5f , %3.5f )\n\n", this->m[12], this->m[13], this->m[14], this->m[15]);
 }
 
 Matrix4 & Matrix4::setFrustum(float l, float r, float b, float t, float n, float f)

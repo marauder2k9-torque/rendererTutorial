@@ -15,7 +15,6 @@
 
 #include "math/matrix.h"
 
-
 //-------------------------------------------------------------
 // Window Handling
 //-------------------------------------------------------------
@@ -277,6 +276,7 @@ struct GFXDevice {
 void* mContext;
 
 #define gglHasWExtension(EXTENSION) GLAD_WGL_##EXTENSION
+#define gglHasExtension(EXTENSION) GLAD_GL_##EXTENSION
 
 void gglPerformBinds()
 {
@@ -321,7 +321,8 @@ void loadGLExtensions(void *context)
 
 GFXDevice* initOpenGL()
 {
-	printf("Temp init opengl for hardware initializing and capabilities. \n");
+	printf("Temp init OpenGL for hardware initializing and capabilities.\n\n");
+	printf("--------------------------------------------\n");
 	WNDCLASS windowClass;
 	memset(&windowClass, 0, sizeof(WNDCLASS));
 
@@ -360,6 +361,10 @@ GFXDevice* initOpenGL()
 	GFXDevice *toAdd = new GFXDevice();
 	toAdd->mIndex = 0;
 
+	GLint maj, min;
+	glGetIntegerv(GL_MAJOR_VERSION, &maj);
+	glGetIntegerv(GL_MINOR_VERSION, &min);
+
 	const char* renderer = (const char*)glGetString(GL_RENDERER);
 	assert(renderer != NULL, "GL_RENDERER returned NULL!");
 	if (renderer)
@@ -371,6 +376,33 @@ GFXDevice* initOpenGL()
 		strncpy(toAdd->mName, "OpenGL", 512);
 
 	printf("Renderer: %s \n", toAdd->mName);
+	printf("Capabilities:\n");
+	printf("\tSupports: OPENGL %d.%d \n", maj, min);
+	GLint maxTexSize;
+	glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxTexSize);
+	printf("\tMax Texture Size: %d \n", maxTexSize);
+
+	if (gglHasExtension(EXT_texture_filter_anisotropic))
+	{
+		printf("\tAnistropic filtering supported.\n");
+	}
+	if (gglHasExtension(ARB_buffer_storage))
+	{
+		printf("\tBuffer storage supported.\n");
+	}
+	if (gglHasExtension(ARB_texture_storage))
+	{
+		printf("\tTexture storage supported.\n");
+	}
+	if (gglHasExtension(ARB_copy_image))
+	{
+		printf("\tCopy image supported.\n");
+	}
+	if (gglHasExtension(ARB_vertex_attrib_binding))
+	{
+		printf("\tVertex attrib binding supported.\n");
+	}
+	printf("--------------------------------------------\n\n");
 
 	// Cleanup our window
 	wglMakeCurrent(NULL, NULL);
@@ -437,10 +469,6 @@ void initFinalState(HWND window)
 
 	loadGLCore();
 	loadGLExtensions(hdcGL);
-
-	//enable sRGB
-	glEnable(GL_FRAMEBUFFER_SRGB);
-
 }
 
 GLuint LoadShaders(const char * vertex_file_path, const char * fragment_file_path) {
@@ -509,7 +537,7 @@ GLuint LoadShaders(const char * vertex_file_path, const char * fragment_file_pat
 	}
 
 	// Link the program
-	printf("Linking program\n");
+	printf("Linking program\n\n");
 	GLuint ProgramID = glCreateProgram();
 	glAttachShader(ProgramID, VertexShaderID);
 	glAttachShader(ProgramID, FragmentShaderID);
@@ -545,7 +573,6 @@ int main()
 
 INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine, INT nCmdShow)
 {
-	winState.appInstance = hInstance;
 	InitWindowClass();
 	Resolution res = getDesktopResolution();
 	GFXDevice* dev = new GFXDevice();
@@ -557,12 +584,7 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine,
 	initFinalState(window);
 	ShowWindow(window, SW_SHOW);
 
-	// fps initializers.
-	float prevtime = 0.0f;
-	float curTime = 0.0f;
-	float timeDiff;
-	UINT32 count = 0;
-
+	// setup vsync if we have it.
 	if (gglHasWExtension(EXT_swap_control))
 	{
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -583,19 +605,21 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine,
 		wglSwapIntervalEXT(0);
 	}
 
-	glViewport(0, 0, res.w, res.h);
-
+	// pointer to window messages.
 	MSG msg = {};
 	sgQueueEvents = true;
+
 	printf("-------------------------\n");
 	printf("LOAD SHADER\n");
 	printf("-------------------------\n");
 	GLuint programID = LoadShaders("TransformVertexShader.vertexshader", "ColorFragmentShader.fragmentshader");
 
+	// get the id from our shader for our matrix uniform locations.
 	GLuint modelID = glGetUniformLocation(programID, "model");
 	GLuint viewID = glGetUniformLocation(programID, "view");
 	GLuint projID = glGetUniformLocation(programID, "proj");
 
+	// create our projection matrix.
 	Matrix4 proj;
 	proj.identity();
 	proj.setFrustum(90.0f,(float)res.w / (float)res.h, 0.01f, 100.0f);
@@ -604,6 +628,7 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine,
 	printf("-------------------------\n");
 	proj.printMatrix();
 
+	// create our view matrix (our camera)
 	Matrix4 view;
 	view.identity();
 	view.lookAt(Vector3(4.0f, 3.0f, -3.0f), Vector3(0.0f, 0.0f, 0.0f), Vector3(0.0f, 1.0f, 0.0f));
@@ -612,6 +637,7 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine,
 	printf("-------------------------\n");
 	view.printMatrix();
 
+	// create a model matrix.
 	Matrix4 model;
 	model.identity();
 	printf("-------------------------\n");
@@ -619,7 +645,8 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine,
 	printf("-------------------------\n");
 	model.printMatrix();
 
-	GLfloat vertices1[] = {	 1, 1, 1,  -1, 1, 1,  -1,-1, 1,     // v0-v1-v2 (front)
+	// create a box
+	GLfloat boxVerts[] = {	 1, 1, 1,  -1, 1, 1,  -1,-1, 1,     // v0-v1-v2 (front)
 							-1,-1, 1,   1,-1, 1,   1, 1, 1,     // v2-v3-v0
 
 							1, 1, 1,   1,-1, 1,   1,-1,-1,      // v0-v3-v4 (right)
@@ -638,8 +665,8 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine,
 							-1, 1,-1,   1, 1,-1,   1,-1,-1 };	// v6-v5-v4
 
 
-// color array
-	GLfloat colors1[] = {	1, 1, 1,   1, 1, 0,   1, 0, 0,      // v0-v1-v2 (front)
+	// color array for box
+	GLfloat boxColors[] = {	1, 1, 1,   1, 1, 0,   1, 0, 0,      // v0-v1-v2 (front)
 							1, 0, 0,   1, 0, 1,   1, 1, 1,      // v2-v3-v0
 
 							1, 1, 1,   1, 0, 1,   0, 0, 1,      // v0-v3-v4 (right)
@@ -664,24 +691,30 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine,
 	// bind the vertex array object first, then bind and set vertex buffers.
 	glBindVertexArray(VAO);
 
+	// enable our frame buffer.
+	glEnable(GL_FRAMEBUFFER_SRGB);
+
 	// Generate vertex buffer for position attribute.
-	GLuint vertbuffer;
-	glGenBuffers(1, &vertbuffer);
+	GLuint boxVertbuffer;
+	glGenBuffers(1, &boxVertbuffer);
+
+	// now set the viewport.
+	glViewport(0, 0, res.w, res.h);
 
 	// bind the vbuffer
-	glBindBuffer(GL_ARRAY_BUFFER, vertbuffer);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices1), vertices1, GL_STATIC_DRAW);
+	glBindBuffer(GL_ARRAY_BUFFER, boxVertbuffer);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(boxVerts), boxVerts, GL_STATIC_DRAW);
 
 	// gernerate color buffer for color attribute.
-	GLuint colorbuffer;
-	glGenBuffers(1, &colorbuffer);
-	glBindBuffer(GL_ARRAY_BUFFER, colorbuffer);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(colors1), colors1, GL_STATIC_DRAW);
+	GLuint boxColorbuffer;
+	glGenBuffers(1, &boxColorbuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, boxColorbuffer);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(boxColors), boxColors, GL_STATIC_DRAW);
 
 	// position attribute in shader
 	GLuint loc1;
 	loc1 = glGetAttribLocation(programID, "position");
-	glBindBuffer(GL_ARRAY_BUFFER, vertbuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, boxVertbuffer);
 	glVertexAttribPointer(
 		loc1,               // match with shader.
 		3,                  // size
@@ -695,7 +728,7 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine,
 	// color attribute in shader.
 	GLuint loc2;
 	loc2 = glGetAttribLocation(programID, "color");
-	glBindBuffer(GL_ARRAY_BUFFER, colorbuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, boxColorbuffer);
 	glVertexAttribPointer(
 		loc2,								// must match the layout in the shader.
 		3,									// size
@@ -705,10 +738,12 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine,
 		(void*)0							// array buffer offset
 	);
 	glEnableVertexAttribArray(loc2);
-	bool bRet;
+	BOOL bRet;
 
+	// main loop
 	while (1)
 	{
+		// handle window messages.
 		bRet = GetMessage(&msg, NULL, 0, 0);
 		if (bRet > 0)
 		{
@@ -720,29 +755,36 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine,
 			break;
 		}
 
+		// clear our screen
 		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		// use depth test!!
 		//glEnable(GL_DEPTH_TEST);
 		//glDepthFunc(GL_LESS);
 
+		// send our matrix info to the shader.
 		glUniformMatrix4fv(modelID, 1, GL_TRUE, model.get());
 		glUniformMatrix4fv(viewID, 1, GL_FALSE, view.get());
 		glUniformMatrix4fv(projID, 1, GL_TRUE, proj.get());
 
+		// use the shader
 		glUseProgram(programID);
 
 		// DRAW HERE PLEASE!!!!!!
 		glDrawArrays(GL_TRIANGLES, 0, 36); // 
 
+		// swap the window buffers.
 		SwapBuffers(winState.appDC);
 	}
 
 	// Cleanup VBO and shader
-	glDeleteBuffers(1, &vertbuffer);
-	glDeleteBuffers(1, &colorbuffer);
+	glDeleteBuffers(1, &boxVertbuffer);
+	glDeleteBuffers(1, &boxColorbuffer);
 	glDeleteProgram(programID);
 	glDeleteVertexArrays(1, &VAO);
 
+	// clean up windows.
 	sgQueueEvents = false;
 	wglDeleteContext((HGLRC)mContext);
 	ReleaseDC(window, winState.appDC);
