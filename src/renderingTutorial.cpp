@@ -188,8 +188,9 @@ struct WinMessage
 	WinMessage(UINT m, WPARAM w, LPARAM l) : message(m), wParam(w), lParam(l) {}
 };
 std::vector<WinMessage> sgWinMessages;
+#define ID_TIMER    1
 
-static LRESULT PASCAL WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+static LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	switch (message)
 	{
@@ -631,7 +632,7 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine,
 	// create our view matrix (our camera)
 	Matrix4 view;
 	view.identity();
-	view.lookAt(Vector3(4.0f, 3.0f, -3.0f), Vector3(0.0f, 0.0f, 0.0f), Vector3(0.0f, 1.0f, 0.0f));
+	view.lookAt(Vector3(4.0f, 3.0f, 3.0f), Vector3(0.0f, 0.0f, 0.0f), Vector3(0.0f, 1.0f, 0.0f));
 	printf("-------------------------\n");
 	printf("VIEW MATRIX\n");
 	printf("-------------------------\n");
@@ -694,12 +695,12 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine,
 	// enable our frame buffer.
 	glEnable(GL_FRAMEBUFFER_SRGB);
 
+	// now set the viewport.
+	glViewport(0, 0, res.w, res.h);
+
 	// Generate vertex buffer for position attribute.
 	GLuint boxVertbuffer;
 	glGenBuffers(1, &boxVertbuffer);
-
-	// now set the viewport.
-	glViewport(0, 0, res.w, res.h);
 
 	// bind the vbuffer
 	glBindBuffer(GL_ARRAY_BUFFER, boxVertbuffer);
@@ -708,6 +709,8 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine,
 	// gernerate color buffer for color attribute.
 	GLuint boxColorbuffer;
 	glGenBuffers(1, &boxColorbuffer);
+
+	// bind the cbuffer
 	glBindBuffer(GL_ARRAY_BUFFER, boxColorbuffer);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(boxColors), boxColors, GL_STATIC_DRAW);
 
@@ -738,44 +741,48 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine,
 		(void*)0							// array buffer offset
 	);
 	glEnableVertexAttribArray(loc2);
+	
 	BOOL bRet;
-
 	// main loop
-	while (1)
+	while (true)
 	{
-		// handle window messages.
-		bRet = GetMessage(&msg, NULL, 0, 0);
-		if (bRet > 0)
+		if (PeekMessage(&msg, window, 0, 0, PM_REMOVE)) 
 		{
-			TranslateMessage(&msg);
-			DispatchMessage(&msg);
+			if (WM_QUIT == msg.message)
+			{
+				break;
+			}
+			else
+			{
+				TranslateMessage(&msg);
+				DispatchMessage(&msg);
+			}
+
 		}
 		else
 		{
-			break;
+			// clear our screen
+			glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+			// use depth test!!
+			//glEnable(GL_DEPTH_TEST);
+			//glDepthFunc(GL_LESS);
+
+			// send our matrix info to the shader.
+			glUniformMatrix4fv(modelID, 1, GL_TRUE, model.get());
+			glUniformMatrix4fv(viewID, 1, GL_FALSE, view.get());
+			glUniformMatrix4fv(projID, 1, GL_TRUE, proj.get());
+
+			// use the shader
+			glUseProgram(programID);
+
+			// DRAW HERE PLEASE!!!!!!
+			glDrawArrays(GL_TRIANGLES, 0, 36); // 
+
+			// swap the window buffers.
+			SwapBuffers(winState.appDC);
 		}
-
-		// clear our screen
-		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		// use depth test!!
-		//glEnable(GL_DEPTH_TEST);
-		//glDepthFunc(GL_LESS);
-
-		// send our matrix info to the shader.
-		glUniformMatrix4fv(modelID, 1, GL_TRUE, model.get());
-		glUniformMatrix4fv(viewID, 1, GL_FALSE, view.get());
-		glUniformMatrix4fv(projID, 1, GL_TRUE, proj.get());
-
-		// use the shader
-		glUseProgram(programID);
-
-		// DRAW HERE PLEASE!!!!!!
-		glDrawArrays(GL_TRIANGLES, 0, 36); // 
-
-		// swap the window buffers.
-		SwapBuffers(winState.appDC);
 	}
 
 	// Cleanup VBO and shader
